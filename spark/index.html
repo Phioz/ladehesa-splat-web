@@ -64,7 +64,10 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
 
 // Asset is shared byte-for-byte with the PlayCanvas viewer next door.
-const SPLAT_URL = new URL("../assets/chaguay.sog", import.meta.url).href;
+// The ?v= tag is a cache-buster: the asset's up-axis convention changed once, and a
+// stale 28 MB .sog in the browser cache is very hard to tell apart from a code bug.
+// Bump it whenever chaguay.sog is rebuilt with different geometry.
+const SPLAT_URL = new URL("../assets/chaguay.sog?v=2", import.meta.url).href;
 
 // Scene framing, derived from the splat's own statistics (splat-transform --stats).
 // Centre of mass sits at roughly (-6.8, 31.5, 3.1); horizontal extent is ~±220 m.
@@ -95,20 +98,22 @@ controls.update();
 const t0 = performance.now();
 const splat = new SplatMesh({ url: SPLAT_URL });
 
-// UP-AXIS: Spark and PlayCanvas genuinely disagree, and one asset cannot satisfy both.
-// The .sog ships in the NATIVE convention because that is what PlayCanvas/SuperSplat/
-// superspl.at expect — so the correction for Spark lives here, in the page.
+// UP-AXIS: no correction — the native .sog is correct in BOTH viewers. Confirmed against
+// PlayCanvas, which reads the same file. Do NOT bake `-r 180,0,0` into build.ps1: that
+// was the original bug and it inverts the PlayCanvas viewer.
 //
-// It must rotate about the scene centre, NOT the origin. The terrain sits ~31.5 units
-// above the origin, so a bare `rotation.x = Math.PI` also flings it to y = -31.5 and
-// straight out of frame. Compensating by 2*centre puts it back where it was.
+// The toggle below exists only to check this by eye. Note it rotates about the scene
+// CENTRE, not the origin: the terrain sits ~31.5 units up, so a bare
+// `rotation.x = Math.PI` also flings it to y = -31.5, straight out of frame. That
+// displacement is easy to misread as "the rotation is wrong" when the scene has merely
+// moved — it is what made this take three attempts to get right.
 const CENTER = new THREE.Vector3(-6.8, 31.5, 3.1);
 const setFlip = (on) => {
   splat.rotation.x = on ? Math.PI : 0;
   splat.position.set(0, on ? 2 * CENTER.y : 0, on ? 2 * CENTER.z : 0);
   splat.updateMatrixWorld(true);
 };
-setFlip(true);
+setFlip(false);
 
 scene.add(splat);
 
@@ -130,8 +135,8 @@ if (splat.initialized?.then) {
   }, 100);
 }
 
-// Up-axis toggle — should be a no-op visually if the default above is right.
-let flipped = true;
+// Up-axis toggle — a verification aid, not a fix. Default (off) is the correct state.
+let flipped = false;
 document.getElementById("flip").onclick = () => {
   flipped = !flipped;
   setFlip(flipped);
