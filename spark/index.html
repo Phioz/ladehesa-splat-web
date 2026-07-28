@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>La Dehesa — three.js + Spark</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<style>
+  html,body { margin:0; height:100%; overflow:hidden; background:#191f26; }
+  canvas { display:block; }
+  #hud {
+    position:fixed; top:12px; left:12px; z-index:10;
+    font:12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color:#dfe6ee; background:rgba(16,20,26,.72); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.10); border-radius:8px; padding:10px 12px;
+    min-width:180px; pointer-events:none;
+  }
+  #hud b { color:#8fd0ff; font-weight:600; }
+  #hud .row { display:flex; justify-content:space-between; gap:14px; }
+  #btns { position:fixed; bottom:14px; left:12px; z-index:10; display:flex; gap:8px; }
+  button {
+    font:12px ui-monospace, Menlo, Consolas, monospace; color:#dfe6ee; cursor:pointer;
+    background:rgba(16,20,26,.72); border:1px solid rgba(255,255,255,.14);
+    border-radius:7px; padding:7px 11px;
+  }
+  button:hover { background:rgba(40,48,60,.85); }
+  #splash {
+    position:fixed; inset:0; z-index:20; display:grid; place-content:center; gap:10px;
+    background:#191f26; color:#9fb0c2; text-align:center;
+    font:13px ui-monospace, Menlo, Consolas, monospace; transition:opacity .5s;
+  }
+  #bar { width:240px; height:3px; background:rgba(255,255,255,.12); border-radius:2px; overflow:hidden; }
+  #bar i { display:block; height:100%; width:35%; background:#8fd0ff; animation:sweep 1.1s ease-in-out infinite; }
+  @keyframes sweep { 0%{transform:translateX(-100%)} 100%{transform:translateX(340%)} }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+    "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/2.1.0/spark.module.js"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="splash"><div>loading splat…</div><div id="bar"><i></i></div></div>
+
+<div id="hud">
+  <div class="row"><span>renderer</span><b>three.js + Spark</b></div>
+  <div class="row"><span>load</span><b id="t-load">…</b></div>
+  <div class="row"><span>fps</span><b id="t-fps">…</b></div>
+  <div class="row"><span>splats</span><b id="t-n">…</b></div>
+</div>
+
+<div id="btns">
+  <button id="reset">reset view</button>
+  <button id="flip">flip up-axis</button>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
+
+// Asset is shared byte-for-byte with the PlayCanvas viewer next door.
+const SPLAT_URL = new URL("../assets/chaguay.sog", import.meta.url).href;
+
+// Scene framing, derived from the splat's own statistics (splat-transform --stats).
+// Centre of mass sits at roughly (-6.8, 31.5, 3.1); horizontal extent is ~±220 m.
+const TARGET = new THREE.Vector3(-6.8, 31.5, 3.1);
+const EYE    = new THREE.Vector3(-6.8, 320, 420);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x191f26);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.5, 8000);
+camera.position.copy(EYE);
+
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const spark = new SparkRenderer({ renderer });
+scene.add(spark);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(TARGET);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxDistance = 3000;
+controls.update();
+
+const t0 = performance.now();
+const splat = new SplatMesh({ url: SPLAT_URL });
+scene.add(splat);
+
+const done = () => {
+  const ms = performance.now() - t0;
+  document.getElementById("t-load").textContent = (ms / 1000).toFixed(2) + " s";
+  const n = splat.numSplats ?? splat.packedSplats?.numSplats;
+  document.getElementById("t-n").textContent = n ? n.toLocaleString() : "n/a";
+  const s = document.getElementById("splash");
+  s.style.opacity = "0";
+  setTimeout(() => s.remove(), 500);
+};
+// Spark exposes an `initialized` promise; fall back to a poll if the API shifts.
+if (splat.initialized?.then) {
+  splat.initialized.then(done);
+} else {
+  const iv = setInterval(() => {
+    if (splat.numSplats || splat.packedSplats?.numSplats) { clearInterval(iv); done(); }
+  }, 100);
+}
+
+// The asset is baked Y-up, so no correction should be needed — but the two renderers
+// disagree about splat handedness often enough that it is worth a one-click check.
+let flipped = false;
+document.getElementById("flip").onclick = () => {
+  flipped = !flipped;
+  splat.rotation.set(flipped ? Math.PI : 0, 0, 0);
+};
+document.getElementById("reset").onclick = () => {
+  camera.position.copy(EYE);
+  controls.target.copy(TARGET);
+  controls.update();
+};
+
+// Debug/benchmark hook. Lets a headless driver force-render and time frames without
+// relying on requestAnimationFrame, which browsers throttle to zero in hidden tabs.
+window.__bench = { THREE, renderer, scene, camera, controls, splat, spark };
+
+const fpsEl = document.getElementById("t-fps");
+let frames = 0, last = performance.now();
+
+renderer.setAnimationLoop(() => {
+  controls.update();
+  renderer.render(scene, camera);
+
+  frames++;
+  const now = performance.now();
+  if (now - last >= 500) {
+    fpsEl.textContent = Math.round((frames * 1000) / (now - last));
+    frames = 0; last = now;
+  }
+});
+
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

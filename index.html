@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>La Dehesa — 3D Gaussian splat, two web viewers</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: dark light; }
+  html,body { margin:0; min-height:100%; }
+  body {
+    background:#131820; color:#dbe3ec;
+    font:15px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    display:flex; justify-content:center; padding:48px 20px 64px;
+  }
+  main { max-width:640px; width:100%; }
+  h1 { font-size:22px; margin:0 0 6px; letter-spacing:-.01em; }
+  .sub { color:#8b9bad; margin:0 0 32px; font-size:14px; }
+  .cards { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+  a.card {
+    display:block; text-decoration:none; color:inherit;
+    background:#1a212b; border:1px solid #2a3542; border-radius:12px;
+    padding:18px 20px; transition:border-color .15s, transform .15s;
+  }
+  a.card:hover { border-color:#4b7fa8; transform:translateY(-2px); }
+  a.card h2 { margin:0 0 4px; font-size:16px; color:#8fd0ff; }
+  a.card p { margin:0; font-size:13px; color:#8b9bad; }
+  dl { margin:34px 0 0; font-size:13.5px; display:grid; grid-template-columns:auto 1fr; gap:6px 18px; }
+  dt { color:#8b9bad; }
+  dd { margin:0; }
+  footer { margin-top:34px; font-size:12.5px; color:#6f7f91; border-top:1px solid #232d39; padding-top:16px; }
+  code { background:#222b36; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>La Dehesa — site scan as a Gaussian splat</h1>
+  <p class="sub">
+    A drone photogrammetry capture of the site near Santiago, Chile, trained as a
+    3D Gaussian splat. The same asset is rendered below by two different web engines —
+    open both and compare.
+  </p>
+
+  <div class="cards">
+    <a class="card" href="./spark/">
+      <h2>three.js + Spark →</h2>
+      <p>Custom page. three.js r180 with the Spark splat renderer. Shows load time and live FPS.</p>
+    </a>
+    <a class="card" href="./playcanvas/">
+      <h2>PlayCanvas →</h2>
+      <p>The stock SuperSplat viewer, self-hosted. Append <code>?ministats</code> for its own stats overlay.</p>
+    </a>
+  </div>
+
+  <dl>
+    <dt>Gaussians</dt><dd>1,939,000 (of 1,999,148 trained)</dd>
+    <dt>Asset</dt><dd>28 MB SOG — down from a 495 MB source PLY</dd>
+    <dt>Capture</dt><dd>802 DJI Mavic Pro photos, aligned in RealityScan</dd>
+    <dt>Training</dt><dd>LichtFeld Studio, 30k iterations, SH band 3</dd>
+  </dl>
+
+  <footer>
+    Drag to orbit, scroll to zoom. Both viewers load the identical
+    <code>assets/chaguay.sog</code>, so any difference you see is the renderer, not the file.
+  </footer>
+</main>
+</body>
+</html>
