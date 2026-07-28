@@ -94,6 +94,14 @@ controls.update();
 
 const t0 = performance.now();
 const splat = new SplatMesh({ url: SPLAT_URL });
+
+// UP-AXIS: Spark and PlayCanvas disagree, and the asset can only satisfy one of them.
+// The .sog ships in the native splat convention (Y-down columns) because that is what
+// PlayCanvas, SuperSplat and splat-transform's rasteriser all expect. Spark instead uses
+// the stored columns as-is, so it needs the 180 deg correction applied here. Do not
+// "fix" this by baking -r into build.ps1 — that flips the PlayCanvas viewer upside down.
+splat.rotation.x = Math.PI;
+
 scene.add(splat);
 
 const done = () => {
@@ -114,9 +122,8 @@ if (splat.initialized?.then) {
   }, 100);
 }
 
-// The asset is baked Y-up, so no correction should be needed — but the two renderers
-// disagree about splat handedness often enough that it is worth a one-click check.
-let flipped = false;
+// Toggles the up-axis correction above, for checking the convention against PlayCanvas.
+let flipped = true;
 document.getElementById("flip").onclick = () => {
   flipped = !flipped;
   splat.rotation.set(flipped ? Math.PI : 0, 0, 0);
