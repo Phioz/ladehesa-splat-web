@@ -95,13 +95,11 @@ controls.update();
 const t0 = performance.now();
 const splat = new SplatMesh({ url: SPLAT_URL });
 
-// UP-AXIS: Spark and PlayCanvas disagree, and the asset can only satisfy one of them.
-// The .sog ships in the native splat convention (Y-down columns) because that is what
-// PlayCanvas, SuperSplat and splat-transform's rasteriser all expect. Spark instead uses
-// the stored columns as-is, so it needs the 180 deg correction applied here. Do not
-// "fix" this by baking -r into build.ps1 — that flips the PlayCanvas viewer upside down.
-splat.rotation.x = Math.PI;
-
+// UP-AXIS: no correction needed, and none should be added. The .sog ships in the native
+// splat convention and Spark's SOG loader normalises it to Y-up on load, exactly as the
+// PlayCanvas viewer does. Do NOT bake `-r 180,0,0` into build.ps1 to "fix" an upside-down
+// scene — that was the original bug, and it renders BOTH viewers upside down. See
+// docs/splat_stage_web.md gotcha (c), and verify with a side view, never a top view.
 scene.add(splat);
 
 const done = () => {
@@ -122,8 +120,8 @@ if (splat.initialized?.then) {
   }, 100);
 }
 
-// Toggles the up-axis correction above, for checking the convention against PlayCanvas.
-let flipped = true;
+// Manual up-axis toggle, kept only as a quick way to sanity-check the convention.
+let flipped = false;
 document.getElementById("flip").onclick = () => {
   flipped = !flipped;
   splat.rotation.set(flipped ? Math.PI : 0, 0, 0);
